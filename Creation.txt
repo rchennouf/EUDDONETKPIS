@@ -1,0 +1,192 @@
+USE [EUDDONETKPIS]
+GO
+
+CREATE TABLE [dbo].[Lead](
+	[lead_id] [int] NOT NULL,
+	[opportunity_id] [int] NULL,
+	[marketing_action_id] [int]NULL,
+	[pm] varchar(max) NULL,
+	[ic] varchar(max) NULL,
+	[date] [date] NULL,
+	[tiering] varchar(256) NULL,
+	[vertical] varchar(256) NULL,
+	[country] varchar(256) NULL,
+	[status] varchar(256) NULL,
+	[in/out] varchar(256) NULL,
+	[source] varchar(256) NULL,
+	[origine] varchar(256) NULL,
+	[typology] varchar(256) NULL,
+	[seo/sea] varchar(256) NULL,
+	[qualification] varchar(256) NULL,
+	[filled_contact] int NULL,
+	[date_extract] [date] NULL )
+
+CREATE TABLE [dbo].[Opportunity](
+	[opportunity_id] [int] NOT NULL,
+	[pm] varchar(max) NULL,
+	[ic] varchar(max) NULL,
+	[team] varchar(256) NULL,
+	[date] [date] NULL,
+	[date_creation] [date],
+	[tiering] varchar(256) NULL,
+	[vertical] varchar(256) NULL,
+	[type] varchar(256) NULL,
+	[country] varchar(256) NULL,
+	[source] varchar(256) NULL,
+	[solution] varchar(256) NULL,
+	[step] varchar(256) NULL,
+	[velocity] varchar(256) NULL,
+	[forecast] varchar(256) NULL,
+	[maturity] varchar(256) NULL,
+	[arr] numeric(18,2) NULL,
+	[services_ca] numeric(18,2) NULL,
+	[quota_ca] numeric(18,2) NULL,
+	[date_extract] [date] NULL ,
+	notes [varchar](max) NULL)
+
+
+
+CREATE TABLE [dbo].[Order](
+	[order_id] INT NOT NULL,
+	[opportunity_id] [int] NULL,
+	[pm] varchar(max) NULL,
+	[ic] varchar(max) NULL,
+	[sdr] varchar(256) NULL,
+	[team] varchar(256) NULL,
+	[date] [date] NULL,
+	[date_creation] [date] NULL,
+	[tiering] varchar(256) NULL,
+	[vertical] varchar(256) NULL,
+	[type] varchar(256) NULL,
+	[country] varchar(256) NULL,
+	[source] varchar(256) NULL,
+	[arr] numeric(18,2) NULL,
+	[req_quota] numeric(18,2) NULL,
+	[presta_comis_ca] numeric(18,2) NULL,
+	[reccuring_service_ca] numeric(18,2) NULL,
+	[date_extract] [date] NULL )
+
+
+CREATE TABLE [dbo].[Calls_stats](
+	[calls_stats_id] [int] NOT NULL,
+	[opportunity_id] [int] NULL,
+	[pm] varchar(max) NULL,
+	[pp] varchar(max) NULL,
+	[belong_to] varchar(max) NULL,
+	[ic] varchar(max) NULL,
+	[status] varchar(256) NULL,
+	[precision] varchar(256) NULL,
+	[date] [date],
+	[date_extract] [date] NULL )
+
+CREATE TABLE [dbo].[Planning](
+	[planning_id] [int] NOT NULL,
+	[opportunity_id] [int] NULL,
+	[pm] varchar(max) NULL,
+	[pp] varchar(max) NULL,
+	[belong_to] varchar(max) NULL,
+	[ic] varchar(max) NULL,
+	[action] varchar(256) NULL,
+	[qualif_ic] varchar(256) NULL,
+	[qualif_sdr] varchar(256) NULL,
+	[date] [date],
+	[date_extract] [date] NULL )
+
+
+
+CREATE TABLE [dbo].[Contract](
+	[contract_id] [int] NOT NULL,
+	[opportunity_id] [int] NULL,
+	[ic] varchar(max) NULL,
+	[country] varchar(256) NULL,
+	[start_date] [date] NULL,
+	[end_date] [date] NULL,
+	[contract_duration] varchar(256) NULL,
+	[nb_users] varchar(256) NULL,
+	[arr] numeric(18,2) NULL,
+	[date_extract] [date] NULL )
+
+CREATE TABLE [dbo].[PM](
+	[pm_id] [int] NOT NULL,
+	[pm] [varchar](max) NULL,
+	[tiering] [varchar](256) NULL,
+	[vertical] [varchar](256) NULL,
+	[country] [varchar](256) NULL,
+	[ic] [varchar](max) NULL,
+	[date_creation] [date] NULL,
+	[date_extract] [date] NULL )
+
+
+CREATE TABLE [dbo].[PP](
+	[pp_id] [int] NOT NULL,
+	[pp] [varchar](max) NULL,
+	[position] [varchar](max) NULL,
+	[contact] [varchar](max) NULL,
+	[ic] [varchar](max) NULL,
+	[date_creation] [date] NULL,
+	[date_extract] [date] NULL )
+
+
+CREATE TABLE [dbo].[Marketing_action](
+	[marketion_action_id] [int] NOT NULL,
+	[market_action] [varchar](max) NULL,
+	[start_date] [date] NULL,
+	[end_date] [date] NULL,
+	[organizer] [varchar](max) NULL,
+	[source] [varchar](256) NULL,
+	[total_lead] [int] NULL,
+	[mql] [int] NULL,
+	[sql] [int] NULL,
+	[nuturing_lead] [int] NULL,
+	[achievement_rate] [numeric](18, 2) NULL,
+	[mql_target] [int] NULL,
+	[mql_cost] [numeric](18, 2) NULL,
+	[date_extract] [date] NULL )
+
+
+CREATE TABLE [dbo].[Client_situation](
+	[client_id] [int] NOT NULL,
+	[contract_id] [int] NULL,
+	[pm] [varchar](max) NULL,
+	[ic] [varchar](256) NULL,
+	[date_start] [date] NULL,
+	[date_end] [date] NULL,
+	[vertical] [varchar](256) NULL,
+	[vertical_type] [varchar](256) NULL,
+	[tiering] [varchar](256) NULL,
+	[health_score] [varchar](256) NULL,
+	[status] [varchar](256) NULL,
+	[irritant_id] [varchar](max) NULL,
+	[duration] [varchar](256) NULL,
+	[country] [varchar](256) NULL,
+	[reniew_status] [varchar](256) NULL,
+	[xpriority] [varchar](256) NULL,
+	[product] [varchar](256) NULL,
+	[project_id] [int] NULL,
+	[arr][numeric](18,2) NULL,
+	[date_extract] [date] NULL)
+
+
+
+CREATE TABLE [EUDDONETKPIS].[dbo].[Projet_duration_stats](
+	[projetid]        [int] NOT NULL,
+	[projet]          [varchar](max) NULL,
+	[ic]              [varchar](256) NULL,
+	[status]          [varchar](256) NULL,
+	[date_ouverture]  [date] NULL,
+	[date_cloture]    [date] NULL,
+	[nb_jours_prevu]  [float] NULL,
+	[non_imputable]   [varchar](256) NULL,
+	[nature_saisie]   [varchar](256) NULL,
+	[annee]           [int] NULL,
+	[mois]            [int] NULL,
+	[nb_heures]       [numeric](18,2) NULL,
+	[detail_users]    [varchar](max) NULL);
+GO
+
+
+CREATE TABLE [EUDDONETKPIS].[dbo].[Users](
+	[userid]         [int] NOT NULL,
+	[username]       [varchar](max) NULL,
+	[usermail]       [varchar](max) NULL,
+	[Groupid]        [int] NULL);

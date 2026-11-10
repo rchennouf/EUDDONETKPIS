@@ -1,0 +1,740 @@
+USE [EUDDONETKPIS]
+
+
+-- Suppression du contenus des tables
+
+TRUNCATE TABLE [Marketing_action]
+TRUNCATE TABLE [PM];
+TRUNCATE TABLE [PP];
+TRUNCATE TABLE [Calls_stats];
+TRUNCATE TABLE [Planning];
+TRUNCATE TABLE [EUDDONETKPIS].[dbo].Projet_duration_stats
+TRUNCATE TABLE [Users];
+ 
+GO
+ 
+ 
+-- Actualisation de la table Lead
+select *  into #Leads from openquery([ERP.EUDONET.COM],
+'SELECT tplid, tpl28, tpl38,replace(pm.pm01,'','','' '') as pm01, us.UserName, cast(tpl95 as date) as d, t.lang_00 as t,
+CASE WHEN pm.pmid IS NULL THEN vl.lang_01 ELSE v.lang_01 END as v,
+c.lang_01 as c,
+tpl36, tpl44, so.lang_00 as so, tpl09, ty.lang_01 as ty, tpl54, q.lang_01 as q, tpl34, cast(getdate() as date) as exp, pm.pmid as pmid, us.Userid as icid
+FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[template_54]
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = tpl27
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.Userid = TRY_CAST(NULLIF(left(tpl12,CHARINDEX('';'',tpl12 + '';'')-1),'''') as int)
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] t on t.dataid = pm.pm52
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] v on v.dataid = pm.pm26
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] vl on vl.dataid = tpl58 AND vl.descid = 326
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] c on c.dataid = tpl59
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] so on so.dataid = tpl42
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] ty on ty.dataid = CASE tpl57 WHEN 5222 THEN 5223 WHEN 15448 THEN 16451 ELSE tpl57 END
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] q on q.dataid = tpl41
+WHERE  cast(tpl95 as date) > ''2024-07-01'' ')
+ 
+UPDATE #Leads
+SET tpl09 = CASE
+        WHEN tpl09 = 'Burkinafaso' THEN 'Burkina faso'
+        WHEN tpl09 = 'Etatsunis' THEN 'États-unis'
+        WHEN tpl09 = 'la reunion' THEN 'France'
+        WHEN tpl09 IN ('Pasybas','Pays-bas') THEN 'Pays_bas'
+        WHEN tpl09 = 'Grandebretagne' THEN 'Grande bretagne'
+        WHEN tpl09 = 'Guineeequatorial' THEN 'Guinee equatoriale'
+        WHEN tpl09 = 'Republiquetcheque' THEN 'Republique tcheque'
+        WHEN tpl09 = 'Nouvellezelande' THEN 'Nouvelle zelande'
+        WHEN tpl09 IN ('Coted''ivoireCote','Cote-d''ivoire') THEN 'Cote d''ivoire'
+        WHEN tpl09 = 'Uk' THEN 'United kingdom'
+        WHEN tpl09 = 'Switzerland' THEN 'Suisse'
+        WHEN tpl09 = 'Djibouti' THEN 'Somalie'
+        WHEN tpl09 IN ('Pays-bas','Paysbas') THEN 'Netherland'
+        ELSE tpl09
+    END,
+    t = CASE
+        WHEN t IN ('Cible 3','Cible 2') THEN 'MidMarket'
+        WHEN t IN ('Cible 1') THEN 'Major Account'
+        ELSE t
+    END;
+ 
+IF EXISTS (SELECT 1 FROM #Leads)
+BEGIN
+ 
+    DELETE FROM [EUDDONETKPIS].[dbo].[Lead]
+    WHERE lead_id NOT IN (SELECT tplid FROM #Leads)
+      AND [date] > '2024-07-01';
+ 
+    -- UPDATE : ligne d'aujourd'hui existe mais les données ont changé
+    UPDATE c
+    SET
+        c.opportunity_id       = o.tpl28,
+        c.marketing_action_id  = o.tpl38,
+        c.pm                   = o.pm01,
+        c.ic                   = o.UserName,
+        c.date                 = o.d,
+        c.tiering              = o.t,
+        c.vertical             = o.v,
+        c.country              = o.c,
+        c.status               = o.tpl36,
+        c.[in/out]             = o.tpl44,
+        c.source               = o.so,
+        c.origine              = o.tpl09,
+        c.typology             = o.ty,
+        c.[seo/sea]            = o.tpl54,
+        c.qualification        = o.q,
+        c.filled_contact       = o.tpl34,
+        c.pm_id                = o.pmid,
+        c.ic_id                = o.icid
+    FROM [EUDDONETKPIS].[dbo].[Lead] c
+    INNER JOIN #Leads o ON o.tplid = c.lead_id
+    WHERE CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+      AND (
+               ISNULL(CAST(c.opportunity_id AS VARCHAR),'')      <> ISNULL(CAST(o.tpl28 AS VARCHAR),'')
+            OR ISNULL(CAST(c.marketing_action_id AS VARCHAR),'') <> ISNULL(CAST(o.tpl38 AS VARCHAR),'')
+            OR ISNULL(c.pm,'')                                   <> ISNULL(o.pm01,'')
+            OR ISNULL(c.ic,'')                                   <> ISNULL(o.UserName,'')
+            OR ISNULL(CAST(c.date AS VARCHAR),'')                <> ISNULL(CAST(o.d AS VARCHAR),'')
+            OR ISNULL(c.tiering,'')                              <> ISNULL(o.t,'')
+            OR ISNULL(c.vertical,'')                             <> ISNULL(o.v,'')
+            OR ISNULL(c.country,'')                              <> ISNULL(o.c,'')
+            OR ISNULL(c.status,'')                               <> ISNULL(o.tpl36,'')
+            OR ISNULL(c.[in/out],'')                             <> ISNULL(o.tpl44,'')
+            OR ISNULL(c.source,'')                               <> ISNULL(o.so,'')
+            OR ISNULL(c.origine,'')                              <> ISNULL(o.tpl09,'')
+            OR ISNULL(c.typology,'')                             <> ISNULL(o.ty,'')
+            OR ISNULL(c.[seo/sea],'')                            <> ISNULL(o.tpl54,'')
+            OR ISNULL(c.qualification,'')                        <> ISNULL(o.q,'')
+            OR ISNULL(CAST(c.filled_contact AS VARCHAR),'')      <> ISNULL(CAST(o.tpl34 AS VARCHAR),'')
+            OR ISNULL(CAST(c.pm_id AS VARCHAR),'')               <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+            OR ISNULL(CAST(c.ic_id AS VARCHAR),'')               <> ISNULL(CAST(o.icid AS VARCHAR),'')
+          );
+ 
+    -- INSERT : lead nouveau OU modifié sans ligne aujourd'hui
+    INSERT INTO [EUDDONETKPIS].dbo.[Lead]
+    SELECT * FROM #Leads o
+    WHERE
+        NOT EXISTS (
+            SELECT 1 FROM [EUDDONETKPIS].[dbo].[Lead] c
+            WHERE c.lead_id = o.tplid
+              AND CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+        )
+        AND (
+            NOT EXISTS (
+                SELECT 1 FROM [EUDDONETKPIS].[dbo].[Lead] c
+                WHERE c.lead_id = o.tplid
+            )
+            OR
+            EXISTS (
+                SELECT 1 
+                FROM [EUDDONETKPIS].[dbo].[Lead] c
+                INNER JOIN (
+                    SELECT lead_id, MAX(date_extract) as derniere_date
+                    FROM [EUDDONETKPIS].[dbo].[Lead]
+                    GROUP BY lead_id
+                ) last ON last.lead_id = c.lead_id AND last.derniere_date = c.date_extract
+                WHERE c.lead_id = o.tplid
+                  AND (
+                           ISNULL(CAST(c.opportunity_id AS VARCHAR),'')      <> ISNULL(CAST(o.tpl28 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.marketing_action_id AS VARCHAR),'') <> ISNULL(CAST(o.tpl38 AS VARCHAR),'')
+                        OR ISNULL(c.pm,'')                                   <> ISNULL(o.pm01,'')
+                        OR ISNULL(c.ic,'')                                   <> ISNULL(o.UserName,'')
+                        OR ISNULL(CAST(c.date AS VARCHAR),'')                <> ISNULL(CAST(o.d AS VARCHAR),'')
+                        OR ISNULL(c.tiering,'')                              <> ISNULL(o.t,'')
+                        OR ISNULL(c.vertical,'')                             <> ISNULL(o.v,'')
+                        OR ISNULL(c.country,'')                              <> ISNULL(o.c,'')
+                        OR ISNULL(c.status,'')                               <> ISNULL(o.tpl36,'')
+                        OR ISNULL(c.[in/out],'')                             <> ISNULL(o.tpl44,'')
+                        OR ISNULL(c.source,'')                               <> ISNULL(o.so,'')
+                        OR ISNULL(c.origine,'')                              <> ISNULL(o.tpl09,'')
+                        OR ISNULL(c.typology,'')                             <> ISNULL(o.ty,'')
+                        OR ISNULL(c.[seo/sea],'')                            <> ISNULL(o.tpl54,'')
+                        OR ISNULL(c.qualification,'')                        <> ISNULL(o.q,'')
+                        OR ISNULL(CAST(c.filled_contact AS VARCHAR),'')      <> ISNULL(CAST(o.tpl34 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.pm_id AS VARCHAR),'')               <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+                        OR ISNULL(CAST(c.ic_id AS VARCHAR),'')               <> ISNULL(CAST(o.icid AS VARCHAR),'')
+                      )
+            )
+        );
+ 
+END;
+ 
+DROP TABLE #Leads;
+GO
+ 
+ 
+-- Actualisation de la table Opportunity
+ 
+select * into #Opportunity from openquery([ERP.EUDONET.COM],
+'SELECT evtid,replace(pm.pm01,'','','' '') as pm01, us.username, grp.groupname,  cast(evt39 as date) as date, cast(evt95 as date) as dtc, t.lang_00 as t, v.lang_01 as v,tp.lang_01 as tp, grp.GroupCountry,
+s.lang_01 as s, sl.lang_01 as sl, st.lang_01 as st, vl.lang_01 as vl, fc.lang_01 as fc, mt.lang_01 as mt,evt27,evt69,evt30,cast(getdate() as date) as exp, pm.pmid as pmid, us.Userid as icid, cast(evt94 as varchar(max)) as notes
+FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[event] e
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = e.pmid
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] t on t.dataid = pm.pm52
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] v on v.dataid = pm.pm26
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] tp on tp.dataid = evt61
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.Userid = evt54
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[GROUP] grp on grp.Groupid = us.groupid
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] s on s.dataid = evt11
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] sl on sl.dataid = TRY_CAST(NULLIF(left(evt56,CHARINDEX('';'',evt56 + '';'')-1),'''') as int)
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] st on st.dataid = evt36
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] vl on vl.dataid = evt38
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] fc on fc.dataid = evt58
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] mt on mt.dataid = evt35
+WHERE  cast(evt95 as date) > ''2005-01-01'' ')
+ 
+update #Opportunity 
+set t = CASE
+        WHEN t IN ('Cible 3','Cible 2') THEN 'MidMarket'
+        WHEN t IN ('Cible 1') THEN 'Major Account'
+        ELSE t
+    END;
+ 
+IF EXISTS (SELECT 1 FROM #Opportunity)
+BEGIN
+ 
+    DELETE FROM [EUDDONETKPIS].[dbo].Opportunity
+    WHERE opportunity_id NOT IN (SELECT evtid FROM #Opportunity)
+      AND [date] > '2005-01-01';
+ 
+    -- UPDATE : ligne d'aujourd'hui existe mais les données ont changé
+    UPDATE c
+    SET
+        c.pm           = o.pm01,
+        c.ic           = o.username,
+        c.team         = o.groupname,
+        c.date         = o.date,
+        c.date_creation= o.dtc,
+        c.tiering      = o.t,
+        c.vertical     = o.v,
+        c.type         = o.tp,
+        c.country      = o.GroupCountry,
+        c.source       = o.s,
+        c.solution     = o.sl,
+        c.step         = o.st,
+        c.velocity     = o.vl,
+        c.forecast     = o.fc,
+        c.maturity     = o.mt,
+        c.arr          = o.evt27,
+        c.services_ca  = o.evt69,
+        c.quota_ca     = o.evt30,
+        c.pm_id        = o.pmid,
+        c.ic_id        = o.icid,
+        c.notes        = o.notes
+    FROM [EUDDONETKPIS].[dbo].[Opportunity] c
+    INNER JOIN #Opportunity o ON o.evtid = c.opportunity_id
+    WHERE CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+      AND (
+               ISNULL(c.pm,'')                             <> ISNULL(o.pm01,'')
+            OR ISNULL(c.ic,'')                             <> ISNULL(o.username,'')
+            OR ISNULL(c.team,'')                           <> ISNULL(o.groupname,'')
+            OR ISNULL(CAST(c.date AS VARCHAR),'')          <> ISNULL(CAST(o.date AS VARCHAR),'')
+            OR ISNULL(CAST(c.date_creation AS VARCHAR),'') <> ISNULL(CAST(o.dtc AS VARCHAR),'')
+            OR ISNULL(c.tiering,'')                        <> ISNULL(o.t,'')
+            OR ISNULL(c.vertical,'')                       <> ISNULL(o.v,'')
+            OR ISNULL(c.type,'')                           <> ISNULL(o.tp,'')
+            OR ISNULL(c.country,'')                        <> ISNULL(o.GroupCountry,'')
+            OR ISNULL(c.source,'')                         <> ISNULL(o.s,'')
+            OR ISNULL(c.solution,'')                       <> ISNULL(o.sl,'')
+            OR ISNULL(c.step,'')                           <> ISNULL(o.st,'')
+            OR ISNULL(c.velocity,'')                       <> ISNULL(o.vl,'')
+            OR ISNULL(c.forecast,'')                       <> ISNULL(o.fc,'')
+            OR ISNULL(c.maturity,'')                       <> ISNULL(o.mt,'')
+            OR ISNULL(CAST(c.arr AS VARCHAR),'')           <> ISNULL(CAST(o.evt27 AS VARCHAR),'')
+            OR ISNULL(CAST(c.services_ca AS VARCHAR),'')   <> ISNULL(CAST(o.evt69 AS VARCHAR),'')
+            OR ISNULL(CAST(c.quota_ca AS VARCHAR),'')      <> ISNULL(CAST(o.evt30 AS VARCHAR),'')
+            OR ISNULL(CAST(c.pm_id AS VARCHAR),'')         <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+            OR ISNULL(CAST(c.ic_id AS VARCHAR),'')         <> ISNULL(CAST(o.icid AS VARCHAR),'')
+            OR ISNULL(c.notes,'')                          <> ISNULL(o.notes,'')
+          );
+ 
+    -- INSERT : opportunité nouvelle OU modifiée sans ligne aujourd'hui
+    INSERT INTO [EUDDONETKPIS].[dbo].[Opportunity] 
+    SELECT * FROM #Opportunity o
+    WHERE
+        NOT EXISTS (
+            SELECT 1 FROM [EUDDONETKPIS].[dbo].[Opportunity] c
+            WHERE c.opportunity_id = o.evtid
+              AND CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+        )
+        AND (
+            NOT EXISTS (
+                SELECT 1 FROM [EUDDONETKPIS].[dbo].[Opportunity] c
+                WHERE c.opportunity_id = o.evtid
+            )
+            OR
+            EXISTS (
+                SELECT 1 
+                FROM [EUDDONETKPIS].[dbo].[Opportunity] c
+                INNER JOIN (
+                    SELECT opportunity_id, MAX(date_extract) as derniere_date
+                    FROM [EUDDONETKPIS].[dbo].[Opportunity]
+                    GROUP BY opportunity_id
+                ) last ON last.opportunity_id = c.opportunity_id AND last.derniere_date = c.date_extract
+                WHERE c.opportunity_id = o.evtid
+                  AND (
+                           ISNULL(c.pm,'')                             <> ISNULL(o.pm01,'')
+                        OR ISNULL(c.ic,'')                             <> ISNULL(o.username,'')
+                        OR ISNULL(c.team,'')                           <> ISNULL(o.groupname,'')
+                        OR ISNULL(CAST(c.date AS VARCHAR),'')          <> ISNULL(CAST(o.date AS VARCHAR),'')
+                        OR ISNULL(CAST(c.date_creation AS VARCHAR),'') <> ISNULL(CAST(o.dtc AS VARCHAR),'')
+                        OR ISNULL(c.tiering,'')                        <> ISNULL(o.t,'')
+                        OR ISNULL(c.vertical,'')                       <> ISNULL(o.v,'')
+                        OR ISNULL(c.type,'')                           <> ISNULL(o.tp,'')
+                        OR ISNULL(c.country,'')                        <> ISNULL(o.GroupCountry,'')
+                        OR ISNULL(c.source,'')                         <> ISNULL(o.s,'')
+                        OR ISNULL(c.solution,'')                       <> ISNULL(o.sl,'')
+                        OR ISNULL(c.step,'')                           <> ISNULL(o.st,'')
+                        OR ISNULL(c.velocity,'')                       <> ISNULL(o.vl,'')
+                        OR ISNULL(c.forecast,'')                       <> ISNULL(o.fc,'')
+                        OR ISNULL(c.maturity,'')                       <> ISNULL(o.mt,'')
+                        OR ISNULL(CAST(c.arr AS VARCHAR),'')           <> ISNULL(CAST(o.evt27 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.services_ca AS VARCHAR),'')   <> ISNULL(CAST(o.evt69 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.quota_ca AS VARCHAR),'')      <> ISNULL(CAST(o.evt30 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.pm_id AS VARCHAR),'')         <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+                        OR ISNULL(CAST(c.ic_id AS VARCHAR),'')         <> ISNULL(CAST(o.icid AS VARCHAR),'')
+                        OR ISNULL(c.notes,'')                          <> ISNULL(o.notes,'')
+                      )
+            )
+        );
+ 
+END;
+ 
+DROP TABLE #Opportunity;
+GO
+ 
+-- Actualisation de la table  Order
+set language English
+select * into #Order from openquery([ERP.EUDONET.COM],
+'SELECT evtid, parentevtid, replace(pm.pm01,'','','' '') as pm01,  us.username,  us1.username as us1, grp.groupname, cast(evt20 as date) as d, cast(evt95 as date) as dc, t.lang_00 as t, v.lang_01 as v,tp.lang_01 as tp, 
+grp.GroupCountry, s.lang_01 as s, evt69,evt60,evt61,evt63,dt.lang_01 as dt, cast(getdate() as date) as exp, pm.pmid as pmid, us.Userid as icid
+FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[event_71] e
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = e.pmid
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] t on t.dataid = pm.pm52
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] v on v.dataid = pm.pm26
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.Userid = evt06
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us1 on us1.Userid = evt10
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[GROUP] grp on grp.Groupid = us.groupid
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] s on s.dataid = evt12
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] tp on tp.dataid = CASE WHEN CHARINDEX('';5988;'','';''+evt11+'';'') > 0 THEN 16849 ELSE 16850 END
+LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] dt on dt.dataid = evt59
+WHERE  cast(evt95 as date) > ''2015-01-01'' and evt95 is not null')
+ 
+update #Order 
+set t = CASE
+        WHEN t IN ('Cible 3','Cible 2') THEN 'MidMarket'
+        WHEN t IN ('Cible 1') THEN 'Major Account'
+        ELSE t
+    END;
+update #Order set dc = TRY_CONVERT(date,'01 '+dt,106) where dt is not null
+ALTER TABLE #Order DROP COLUMN dt
+ 
+IF EXISTS (SELECT 1 FROM #Order)
+BEGIN
+ 
+    DELETE FROM [EUDDONETKPIS].[dbo].Commandes
+    WHERE order_id NOT IN (SELECT evtid FROM #Order)
+      AND [date] > '2015-01-01';
+ 
+    -- UPDATE : ligne d'aujourd'hui existe mais les données ont changé
+    UPDATE c
+    SET
+        c.opportunity_id      = o.parentevtid,
+        c.pm                  = o.pm01,
+        c.ic                  = o.username,
+        c.sdr                 = o.us1,
+        c.team                = o.groupname,
+        c.date                = o.d,
+        c.date_creation       = o.dc,
+        c.tiering             = o.t,
+        c.vertical            = o.v,
+        c.type                = o.tp,
+        c.country             = o.GroupCountry,
+        c.source              = o.s,
+        c.arr                 = o.evt69,
+        c.req_quota           = o.evt60,
+        c.presta_comis_ca     = o.evt61,
+        c.reccuring_service_ca= o.evt63,
+        c.pm_id               = o.pmid,
+        c.ic_id               = o.icid
+    FROM [EUDDONETKPIS].[dbo].[Commandes] c
+    INNER JOIN #Order o ON o.evtid = c.order_id
+    WHERE CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+      AND (
+               ISNULL(c.opportunity_id,'')                        <> ISNULL(CAST(o.parentevtid AS VARCHAR),'')
+            OR ISNULL(c.pm,'')                                    <> ISNULL(o.pm01,'')
+            OR ISNULL(c.ic,'')                                    <> ISNULL(o.username,'')
+            OR ISNULL(c.sdr,'')                                   <> ISNULL(o.us1,'')
+            OR ISNULL(c.team,'')                                  <> ISNULL(o.groupname,'')
+            OR ISNULL(CAST(c.date AS VARCHAR),'')                 <> ISNULL(CAST(o.d AS VARCHAR),'')
+            OR ISNULL(CAST(c.date_creation AS VARCHAR),'')        <> ISNULL(CAST(o.dc AS VARCHAR),'')
+            OR ISNULL(c.tiering,'')                               <> ISNULL(o.t,'')
+            OR ISNULL(c.vertical,'')                              <> ISNULL(o.v,'')
+            OR ISNULL(c.type,'')                                  <> ISNULL(o.tp,'')
+            OR ISNULL(c.country,'')                               <> ISNULL(o.GroupCountry,'')
+            OR ISNULL(c.source,'')                                <> ISNULL(o.s,'')
+            OR ISNULL(CAST(c.arr AS VARCHAR),'')                  <> ISNULL(CAST(o.evt69 AS VARCHAR),'')
+            OR ISNULL(CAST(c.req_quota AS VARCHAR),'')            <> ISNULL(CAST(o.evt60 AS VARCHAR),'')
+            OR ISNULL(CAST(c.presta_comis_ca AS VARCHAR),'')      <> ISNULL(CAST(o.evt61 AS VARCHAR),'')
+            OR ISNULL(CAST(c.reccuring_service_ca AS VARCHAR),'') <> ISNULL(CAST(o.evt63 AS VARCHAR),'')
+            OR ISNULL(CAST(c.pm_id AS VARCHAR),'')                <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+            OR ISNULL(CAST(c.ic_id AS VARCHAR),'')                <> ISNULL(CAST(o.icid AS VARCHAR),'')
+          );
+ 
+    -- INSERT : commande nouvelle OU modifiée sans ligne aujourd'hui
+    INSERT INTO [EUDDONETKPIS].[dbo].[Commandes] SELECT * FROM #Order o
+    WHERE
+        NOT EXISTS (
+            SELECT 1 FROM [EUDDONETKPIS].[dbo].[Commandes] c
+            WHERE c.order_id = o.evtid
+              AND CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+        )
+        AND (
+            NOT EXISTS (
+                SELECT 1 FROM [EUDDONETKPIS].[dbo].[Commandes] c
+                WHERE c.order_id = o.evtid
+            )
+            OR
+            EXISTS (
+                SELECT 1 
+                FROM [EUDDONETKPIS].[dbo].[Commandes] c
+                INNER JOIN (
+                    SELECT order_id, MAX(date_extract) as derniere_date
+                    FROM [EUDDONETKPIS].[dbo].[Commandes]
+                    GROUP BY order_id
+                ) last ON last.order_id = c.order_id AND last.derniere_date = c.date_extract
+                WHERE c.order_id = o.evtid
+                  AND (
+                           ISNULL(c.opportunity_id,'')                        <> ISNULL(CAST(o.parentevtid AS VARCHAR),'')
+                        OR ISNULL(c.pm,'')                                    <> ISNULL(o.pm01,'')
+                        OR ISNULL(c.ic,'')                                    <> ISNULL(o.username,'')
+                        OR ISNULL(c.sdr,'')                                   <> ISNULL(o.us1,'')
+                        OR ISNULL(c.team,'')                                  <> ISNULL(o.groupname,'')
+                        OR ISNULL(CAST(c.date AS VARCHAR),'')                 <> ISNULL(CAST(o.d AS VARCHAR),'')
+                        OR ISNULL(CAST(c.date_creation AS VARCHAR),'')        <> ISNULL(CAST(o.dc AS VARCHAR),'')
+                        OR ISNULL(c.tiering,'')                               <> ISNULL(o.t,'')
+                        OR ISNULL(c.vertical,'')                              <> ISNULL(o.v,'')
+                        OR ISNULL(c.type,'')                                  <> ISNULL(o.tp,'')
+                        OR ISNULL(c.country,'')                               <> ISNULL(o.GroupCountry,'')
+                        OR ISNULL(c.source,'')                                <> ISNULL(o.s,'')
+                        OR ISNULL(CAST(c.arr AS VARCHAR),'')                  <> ISNULL(CAST(o.evt69 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.req_quota AS VARCHAR),'')            <> ISNULL(CAST(o.evt60 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.presta_comis_ca AS VARCHAR),'')      <> ISNULL(CAST(o.evt61 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.reccuring_service_ca AS VARCHAR),'') <> ISNULL(CAST(o.evt63 AS VARCHAR),'')
+                        OR ISNULL(CAST(c.pm_id AS VARCHAR),'')                <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+                        OR ISNULL(CAST(c.ic_id AS VARCHAR),'')                <> ISNULL(CAST(o.icid AS VARCHAR),'')
+                      )
+            )
+        );
+ 
+END;
+ 
+DROP TABLE #Order;
+GO
+ 
+-- Actualisation de la table PM
+ 
+select * into #PM from openquery([ERP.EUDONET.COM],
+'SELECT  pmid, replace(pm01,'','','' '') as pm01,  t.lang_00 as t, v.lang_01 as v, c.lang_01 as c , us.username as us, cast(pm95 as date) as d, cast(getdate() as date) as dt, pm97 as icid
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[PM]
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] t on t.dataid = pm52
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] v on v.dataid = pm26
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] c on c.dataid = pm03
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.Userid = pm97
+ ')
+update #PM 
+set t = CASE
+        WHEN t IN ('Cible 3','Cible 2') THEN 'MidMarket'
+        WHEN t IN ('Cible 1') THEN 'Major Account'
+        ELSE t
+    END;
+INSERT INTO [EUDDONETKPIS].[dbo].PM SELECT * from #PM
+drop table #PM
+ 
+GO
+ 
+ 
+ 
+ 
+ 
+-- Actualisation de la table PP
+ 
+select * into #PP  from openquery([ERP.EUDONET.COM],
+'SELECT  ppid, (COALESCE(pp01,'''') + '' '' + COALESCE(pp02,'''')) as nom, PP06, pp12, us.username, cast(pp95 as date) as d, cast(getdate() as date) as dt, pp97 as icid
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[PP]
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.Userid = pp97
+ ')
+INSERT INTO  [EUDDONETKPIS].[dbo].PP SELECT * from #PP
+drop table #PP
+ 
+GO
+ 
+ 
+ 
+ 
+-- Actualisation de la table call stats
+ 
+select * into #CallStats from openquery([ERP.EUDONET.COM],
+'SELECT tplid, evtid,replace(pm.pm01,'','','' '') as pm01, (COALESCE(pp.pp01,'''') + '' '' + COALESCE(pp.pp02,'''')) as pp, us.username, us1.username as us, 
+a.lang_01 as a, k.lang_01 as k, cast(tpl95 as date) as d, cast(getdate() as date) as exp, pm.pmid as pmid, tpl10 as icid
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[template_63] e
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = e.pmid
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PP] pp on pp.ppid = e.ppid
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.userid = tpl97
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us1 on us1.userid = tpl10
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] a on a.dataid = tpl03
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] k on k.dataid = tpl07
+ WHERE cast(tpl95 as date) > ''2025-06-30'' and tpl01 is not null
+ ')
+ INSERT INTO Calls_stats SELECT * FROM #CallStats
+drop table #CallStats
+ 
+ 
+ 
+ 
+-- Actualisation de la table Planning
+ 
+select * into #planning from openquery([ERP.EUDONET.COM],
+'SELECT tplid, evtid,replace(pm.pm01,'','','' '') as pm01, (COALESCE(pp.pp01,'''') + '' '' + COALESCE(pp.pp02,'''')) as pp, us.username, us1.username as us,  
+ tpl31, b.lang_01 as b, c.lang_01 as c, cast(tpl02 as date) as d, cast(getdate() as date) as dt, pm.pmid as pmid, tpl14 as icid
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[template_0] e
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = e.pmid
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PP] pp on pp.ppid = e.ppid
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.userid = tpl99
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us1 on us1.userid = tpl14
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] b on b.dataid = tpl08
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] c on c.dataid = tpl36
+ where cast(tpl02 as date) > ''2025-06-30''and tpl02 is not null
+ ')
+ INSERT INTO Planning SELECT * FROM #planning
+ drop table #planning
+ 
+ GO
+ 
+ 
+ -- Actualisation de la table Marketing action
+ 
+select * into #marketing_action from openquery([ERP.EUDONET.COM],
+'SELECT evtid, evt01, cast(evt03 as date) as st, cast(evt08 as date) as dtf, us.username, c.lang_01 as c,
+ evt28, evt33, evt56, evt59, evt53, evt67, evt31, cast(getdate() as date) as dt
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[event_82]
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] us on us.userid = evt99
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] c on c.dataid = TRY_CAST(LEFT(evt09, CHARINDEX('';'', evt09 + '';'') - 1) AS int)
+ WHERE evt03 is not null and evt01 is not null')
+ INSERT INTO Marketing_action SELECT * FROM #marketing_action
+ drop table #marketing_action 
+ 
+ GO
+
+ -- Actualisation users
+
+ select * into #Users from openquery([ERP.EUDONET.COM],'select userid,username,usermail,groupid from [EUDO_HOTCOM_EUDOWEB].[dbo].[USER]')
+ INSERT INTO Users select * from #Users
+ drop table #Users
+
+ GO
+
+
+
+ -- Actualisatio Client Situation
+ select * into #Client_situation from openquery([ERP.EUDONET.COM],                                                                             
+'SELECT c.evtid,c.evt37,replace(pm.pm01,'','','' '') as pm01,ic.username,cc.evt37 as cct, st.lang_01 as st, cast(cc.evt33 as date) as evt33 ,v.lang_01 as v , vt.lang_00 as c33 ,  t.lang_00 as t ,
+ ht.lang_00 as ht , stt.lang_00 as stt , c.evt35 as irr, dr.lang_01 as dr, co.lang_01 as c , str.lang_00 as str, xp.lang_01 as xp, sl.lang_01 as sl , c.evt15 , c. evt27 , cast(getdate() as date) as dt, pm.pmid as pmid, c.evt07 as icid from [EUDO_HOTCOM_EUDOWEB].[dbo].[event_164] c
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[PM] pm on pm.pmid = c.pmid
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[event_194] cc on cc.evtid = c.evt37 
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] ic on ic.userid = c.evt07
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] t on t.dataid = pm.pm52
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] v on v.dataid = pm.pm26
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] co on co.dataid = pm.pm03
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] ht on ht.dataid = c.evt38
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] stt on stt.dataid = cc.evt04
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] dr on dr.dataid = cc.evt29
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] str on str.dataid = c.evt14
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] xp on xp.dataid = c.evt32
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] sl on sl.dataid = TRY_CAST(NULLIF(left(c.evt20,CHARINDEX('';'',c.evt20 + '';'')-1),'''') as int)
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] st on st.dataid = c.evt68
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[FILEDATA] vt on vt.dataid = c.evt33')
+ 
+SET LANGUAGE English;
+UPDATE #Client_situation
+    SET st = CASE
+        WHEN cct IS NULL THEN
+            CAST(
+                CAST(YEAR(GETDATE()) AS VARCHAR) + '-' +
+                RIGHT('00' + CAST(MONTH(CAST(st + ' 01 2000' AS DATE)) AS VARCHAR), 2) + '-01'
+            AS DATE)
+        ELSE
+            CAST(
+                CAST(
+                    CASE 
+                        WHEN MONTH(CAST(st + ' 01 2000' AS DATE)) <= MONTH(cct)
+                        THEN YEAR(cct) + 1
+                        ELSE YEAR(cct)
+                    END
+                AS VARCHAR) + '-' +
+                RIGHT('00' + CAST(MONTH(CAST(st + ' 01 2000' AS DATE)) AS VARCHAR), 2) + '-01'
+            AS DATE)
+    END;
+ 
+ALTER TABLE #Client_situation DROP COLUMN cct;
+ 
+UPDATE #Client_situation set t = 
+    CASE
+        WHEN t IN ('Cible 3','Cible 2') THEN 'MidMarket'
+        WHEN t IN ('Cible 1') THEN 'Major Account'
+        ELSE t
+    END;
+ 
+IF EXISTS (SELECT 1 FROM #Client_situation)
+BEGIN
+ 
+    DELETE FROM [EUDDONETKPIS].[dbo].[Client_situation]
+    WHERE client_id NOT IN (SELECT evtid FROM #Client_situation);
+ 
+    -- UPDATE : ligne d'aujourd'hui existe mais les données ont changé
+    UPDATE c
+    SET
+        c.contract_id    = o.evt37,
+        c.pm             = o.pm01,
+        c.ic             = o.username,
+        c.date_start     = o.st,
+        c.date_end       = o.evt33,
+        c.vertical       = o.v,
+        c.vertical_type  = o.c33,
+        c.tiering        = o.t,
+        c.health_score   = o.ht,
+        c.status         = o.stt,
+        c.irritant_id    = o.irr,
+        c.duration       = o.dr,
+        c.country        = o.c,
+        c.reniew_status  = o.[str],
+        c.xpriority      = o.xp,
+        c.[product]      = o.sl,
+        c.project_id     = o.evt15,
+        c.arr            = o.evt27,
+        c.pm_id          = o.pmid,
+        c.ic_id          = o.icid
+    FROM [EUDDONETKPIS].[dbo].[Client_situation] c
+    INNER JOIN #Client_situation o ON o.evtid = c.client_id
+    WHERE CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+      AND (
+               ISNULL(CAST(c.contract_id AS VARCHAR),'')  <> ISNULL(CAST(o.evt37 AS VARCHAR),'')
+            OR ISNULL(c.pm,'')                            <> ISNULL(o.pm01,'')
+            OR ISNULL(c.ic,'')                            <> ISNULL(o.username,'')
+            OR ISNULL(CAST(c.date_start AS VARCHAR),'')   <> ISNULL(CAST(o.st AS VARCHAR),'')
+            OR ISNULL(CAST(c.date_end AS VARCHAR),'')     <> ISNULL(CAST(o.evt33 AS VARCHAR),'')
+            OR ISNULL(c.vertical,'')                      <> ISNULL(o.v,'')
+            OR ISNULL(c.vertical_type,'')                 <> ISNULL(o.c33,'')
+            OR ISNULL(c.tiering,'')                       <> ISNULL(o.t,'')
+            OR ISNULL(c.health_score,'')                  <> ISNULL(o.ht,'')
+            OR ISNULL(c.status,'')                        <> ISNULL(o.stt,'')
+            OR ISNULL(CAST(c.irritant_id AS VARCHAR),'')  <> ISNULL(CAST(o.irr AS VARCHAR),'')
+            OR ISNULL(c.duration,'')                      <> ISNULL(o.dr,'')
+            OR ISNULL(c.country,'')                       <> ISNULL(o.c,'')
+            OR ISNULL(c.reniew_status,'')                 <> ISNULL(o.[str],'')
+            OR ISNULL(c.xpriority,'')                     <> ISNULL(o.xp,'')
+            OR ISNULL(c.[product],'')                     <> ISNULL(o.sl,'')
+            OR ISNULL(CAST(c.project_id AS VARCHAR),'')   <> ISNULL(CAST(o.evt15 AS VARCHAR),'')
+            OR ISNULL(CAST(c.arr AS VARCHAR),'')          <> ISNULL(CAST(o.evt27 AS VARCHAR),'')
+            OR ISNULL(CAST(c.pm_id AS VARCHAR),'')        <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+            OR ISNULL(CAST(c.ic_id AS VARCHAR),'')        <> ISNULL(CAST(o.icid AS VARCHAR),'')
+          );
+ 
+    -- INSERT : client nouveau OU modifié sans ligne aujourd'hui
+    INSERT INTO [EUDDONETKPIS].[dbo].[Client_situation]
+    SELECT * FROM #Client_situation o
+    WHERE
+        NOT EXISTS (
+            SELECT 1 FROM [EUDDONETKPIS].[dbo].[Client_situation] c
+            WHERE c.client_id = o.evtid
+              AND CAST(c.date_extract AS DATE) = CAST(GETDATE() AS DATE)
+        )
+        AND (
+            NOT EXISTS (
+                SELECT 1 FROM [EUDDONETKPIS].[dbo].[Client_situation] c
+                WHERE c.client_id = o.evtid
+            )
+            OR
+            EXISTS (
+                SELECT 1
+                FROM (
+                    SELECT TOP 1
+                        contract_id, pm, ic, date_start, date_end,
+                        vertical, vertical_type, tiering, health_score,
+                        status, irritant_id, duration, country,
+                        reniew_status, xpriority, [product], project_id, arr, pm_id, ic_id
+                    FROM [EUDDONETKPIS].[dbo].[Client_situation]
+                    WHERE client_id = o.evtid
+                    ORDER BY date_extract DESC
+                ) last
+                WHERE
+                    ISNULL(CAST(last.contract_id AS VARCHAR),'')  <> ISNULL(CAST(o.evt37 AS VARCHAR),'')
+                 OR ISNULL(last.pm,'')                            <> ISNULL(o.pm01,'')
+                 OR ISNULL(last.ic,'')                            <> ISNULL(o.username,'')
+                 OR ISNULL(CAST(last.date_start AS VARCHAR),'')   <> ISNULL(CAST(o.st AS VARCHAR),'')
+                 OR ISNULL(CAST(last.date_end AS VARCHAR),'')     <> ISNULL(CAST(o.evt33 AS VARCHAR),'')
+                 OR ISNULL(last.vertical,'')                      <> ISNULL(o.v,'')
+                 OR ISNULL(last.vertical_type,'')                 <> ISNULL(o.c33,'')
+                 OR ISNULL(last.tiering,'')                       <> ISNULL(o.t,'')
+                 OR ISNULL(last.health_score,'')                  <> ISNULL(o.ht,'')
+                 OR ISNULL(last.status,'')                        <> ISNULL(o.stt,'')
+                 OR ISNULL(CAST(last.irritant_id AS VARCHAR),'')  <> ISNULL(CAST(o.irr AS VARCHAR),'')
+                 OR ISNULL(last.duration,'')                      <> ISNULL(o.dr,'')
+                 OR ISNULL(last.country,'')                       <> ISNULL(o.c,'')
+                 OR ISNULL(last.reniew_status,'')                 <> ISNULL(o.[str],'')
+                 OR ISNULL(last.xpriority,'')                     <> ISNULL(o.xp,'')
+                 OR ISNULL(last.[product],'')                     <> ISNULL(o.sl,'')
+                 OR ISNULL(CAST(last.project_id AS VARCHAR),'')   <> ISNULL(CAST(o.evt15 AS VARCHAR),'')
+                 OR ISNULL(CAST(last.arr AS VARCHAR),'')          <> ISNULL(CAST(o.evt27 AS VARCHAR),'')
+                 OR ISNULL(CAST(last.pm_id AS VARCHAR),'')        <> ISNULL(CAST(o.pmid AS VARCHAR),'')
+                 OR ISNULL(CAST(last.ic_id AS VARCHAR),'')        <> ISNULL(CAST(o.icid AS VARCHAR),'')
+            )
+        );
+ 
+END;
+ 
+DROP TABLE #Client_situation;
+GO
+
+-- Actualisation Projet duration stats
+select * into #PDS from openquery([ERP.EUDONET.COM],
+'SELECT  p.EvtID as projetid,
+         max(cast(p.EVT01 as varchar(4000))) as projet,
+         max(cast(p.EVT51 as varchar(256)))  as ic,
+         max(cast(p.EVT04 as varchar(256)))  as status,
+         max(cast(p.EVT02 as date))          as date_ouverture,
+         max(cast(p.EVT05 as date))          as date_cloture,
+         max(cast(p.EVT15 as float))         as nb_jours_prevu,
+         cast(a.TPL42 as varchar(256))       as non_imputable,
+         cast(a.TPL07 as varchar(256))       as nature_saisie,
+         year(a.Tpl02)  as annee,
+         month(a.Tpl02) as mois,
+         cast(sum(datediff(minute, a.Tpl02, a.Tpl89)) / 60.0 as numeric(18,2)) as nb_heures,
+         cast(u.username as varchar(256))    as detail_users
+ FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[Event_31] p
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[Template_0] a
+        on a.Tpl18 = p.EvtID
+       and a.Tpl02 is not null
+       and a.Tpl89 > a.Tpl02
+ LEFT JOIN [EUDO_HOTCOM_EUDOWEB].[dbo].[USER] u
+        on u.Userid = a.TPL97
+ WHERE p.EVT04 not in (''Finalisé'', ''Annulé'')
+    or p.EVT05 >= dateadd(year, -2, getdate())
+ GROUP BY p.EvtID,
+          cast(a.TPL42 as varchar(256)),
+          cast(a.TPL07 as varchar(256)),
+          year(a.Tpl02), month(a.Tpl02),
+          cast(u.username as varchar(256))')
+
+truncate table [EUDDONETKPIS].[dbo].Projet_duration_stats
+
+INSERT INTO [EUDDONETKPIS].[dbo].Projet_duration_stats
+    (projetid, projet, ic, status, date_ouverture, date_cloture,
+     nb_jours_prevu, non_imputable, nature_saisie, annee, mois,
+     nb_heures, detail_users)
+SELECT
+     projetid, projet, ic, status, date_ouverture, date_cloture,
+     nb_jours_prevu, non_imputable, nature_saisie, annee, mois,
+     nb_heures, detail_users
+FROM #PDS
+
+drop table #PDS
+
+GO
