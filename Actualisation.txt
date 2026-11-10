@@ -17,7 +17,7 @@ GO
 -- Actualisation de la table Lead
 select *  into #Leads from openquery([ERP.EUDONET.COM],
 'SELECT tplid, tpl28, tpl38,replace(pm.pm01,'','','' '') as pm01, us.UserName, cast(tpl95 as date) as d, t.lang_00 as t,
-CASE WHEN pm.pmid IS NULL THEN vl.lang_01 ELSE v.lang_01 END as v,
+COALESCE(v.lang_01, vl.lang_01) as v,
 c.lang_01 as c,
 tpl36, tpl44, so.lang_00 as so, tpl09, ty.lang_01 as ty, tpl54, q.lang_01 as q, tpl34, cast(getdate() as date) as exp, pm.pmid as pmid, us.Userid as icid
 FROM [EUDO_HOTCOM_EUDOWEB].[dbo].[template_54]
